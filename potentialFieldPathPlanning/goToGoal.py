@@ -1,7 +1,5 @@
-import sympy as sy
-import numpy as np
 
-Kg = 0.05
+Kg = 0.025
 
 
 def goToGoal(cfPos):
@@ -18,6 +16,6 @@ def goToGoal(cfPos):
 
     uy = (-2 * (yc - yg)) * Kg  # Neg gradient of the pot. function * P-gain
 
-    uz = (-2 * (zc - zg)) * Kg  # Neg gradient of the pot. function * P-gain
+    uz = (-2 * (zc - zg)) * Kg
 
     return [ux, uy, uz]

@@ -1,59 +1,63 @@
 clear
 
-gx = 0; % Goal x-coordinate
-gy = 2; % Goal y-coordinate	
-R = 1; % Range when avoidance is activated
-r = 0.5; % Safe distance
-O = [0.01 0; 0.5 0.8];
-xO1 = 0.7;
-yO1 = 0.8;
-xO = -0.01; % Obstacle x-coordinate
-yO = 0; % Obstacle y-coordinate
+% CF1 starting coords:
+sx1 = -0.30; 
+sy1 = 2.03;
+
+% CF2 starting coords:
+sx2 = 0.11;
+sy2 = -2.07;
+
+gx1 = 0; % Goal x-coordinate
+gy1 = -2; % Goal y-coordinate
+gx2 = 0; % Goal x-coordinate
+gy2 = 2; % Goal y-coordinate	
 tolerance = 0.10; % When dist between goal and agent is less than tolerance, goal is reached
 
 sim('pFSimulator.slx', 60)
 
-t = readtable('PATH TO YOUR POSFILE');
+t1 = readtable('YOUR PATH TO pos1.csv FILE');
+t3 = readtable('YOUR PATH TO pos3.csv FILE');
 
 data = ans;
-%sim = plot(data.x.data, data.y.data);
-axis equal
+sim2 = plot(data.x1.data, data.y1.data, 'g');
 hold on
-%real = plot(t.x, t.y,'g-', 'LineWidth', 0.5);
-s = plot(0.17,-2.4, 'b*');
-g = plot(gx,gy, 'black*');
+sim1 = plot(data.x2.data, data.y2.data, 'r');
+axis equal
 
-o1 = plot(xO1,yO1, 'r*');
 th = 0:pi/50:2*pi;
-xunit = R * cos(th) + xO1;
-yunit = R * sin(th) + yO1;
-R1plot = plot(xunit, yunit);
+plotgx1 = tolerance * cos(th) + gx1;
+plotgy1 = tolerance * sin(th) + gy1;
+goalplot1 = plot(plotgx1, plotgy1, 'g');
 
-xunit = r * cos(th) + xO1;
-yunit = r * sin(th) + yO1;
-r2plot = plot(xunit, yunit);
+plotgx2 = tolerance * cos(th) + gx2;
+plotgy2 = tolerance * sin(th) + gy2;
+goalplot2 = plot(plotgx2, plotgy2, 'r');
 
-o = plot(xO,yO, 'r*');
-th = 0:pi/50:2*pi;
-xunit = R * cos(th) + xO;
-yunit = R * sin(th) + yO;
-Rplot = plot(xunit, yunit);
+real1 = animatedline('Color','r', 'LineStyle', '--');
+real3 = animatedline('Color','g', 'LineStyle', '--');
 
-xunit = r * cos(th) + xO;
-yunit = r * sin(th) + yO;
-rplot = plot(xunit, yunit);
+plot(sx1, sy1, 'Color', 'g', 'Marker', 'x')
+plot(sx2, sy2, 'Color', 'r', 'Marker', 'x')
 
-xunit = tolerance * cos(th) + gx;
-yunit = tolerance * sin(th) + gy;
-goalplot = plot(xunit, yunit);
+l1 = length(t1.x1);
+l3 = length(t3.x3);
 
-sim = plot(data.x.data, data.y.data, 'Color','b');
-real = animatedline('Color','g');
+l = max([l1 l3]);
 
-for k = 1:length(t.x)
-    addpoints(real,t.x(k),t.y(k));
+for k = 1:l
+    
+    if k < length(t1.x1)
+        addpoints(real1,t1.x1(k),t1.y1(k));
+    end
+    
+    if k < length(t3.x3)
+        addpoints(real3,t3.x3(k),t3.y3(k));
+    end
+    
     drawnow
+    pause(0.01)
 end
 
-legend([sim real goalplot Rplot rplot o s g],{'sim', 'real', 'tolerance', 'R','r','obstacle', 'start', 'goal'})
+legend([sim1 sim2 real1 real3],{'CF1sim', 'CF3sim', 'CF1', 'CF3'})
 hold off

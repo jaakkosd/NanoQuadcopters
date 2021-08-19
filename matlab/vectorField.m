@@ -21,7 +21,7 @@ quiver(resultX.', resultY.');
 function uvel = pfs(xC, yC)
 R = 1; % Range when avoidance is activated
 r = 0.5; % Safe distance
-O = [0.01 0; 0.5 0.8];
+O = [0.0 0];
 xO = 0.01; % Obstacle x-coordinate
 yO = 2; % Obstacle y-coordinate
 constant = 0.25; % Constant to scale u values

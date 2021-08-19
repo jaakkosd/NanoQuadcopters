@@ -6,18 +6,21 @@ import avoidance as avc
 import goToGoal as gtg
 
 TOLERANCE = 0.15
-Kp = 0.1
+OTHERHEIGHT = 0.5
 
 
 def ask_goal_pos(cfPos):
     print(" Current position is: ", '({}, {}, {})'.format(cfPos.current[0], cfPos.current[1], cfPos.current[2]))
-    goalpos = input("Give the goal x-coordinate :")
-    cfPos.goal[0] = goalpos
+    # goalpos = input("Give the goal x-coordinate :")
+    cfPos.goal[0] = 0
 
-    goalpos = input("Give the goal y-coordinate :")
-    cfPos.goal[1] = goalpos
+    # goalpos = input("Give the goal y-coordinate :")
+    if cfPos.id == 1:
+        cfPos.goal[1] = 2
+    if cfPos.id == 3:
+        cfPos.goal[1] = -2
 
-    goalpos = input("Give the goal z-coordinate :")
+    #goalpos = input("Give the goal z-coordinate :")
     #cfPos.goal[2] = goalpos
 
 
@@ -41,6 +44,7 @@ def is_in_goal(cfPos):
 
     dist = math.sqrt(pow((xg - xc), 2) + pow((yg - yc), 2))  # Distance between agent and goal
     if dist < TOLERANCE:
+        print(cfPos.id, ": ", dist)
         return True
     else:
         return False
@@ -48,11 +52,14 @@ def is_in_goal(cfPos):
 
 def controller(scf, cfPos):
     cf = scf.cf
-    time.sleep(0.2)
-
+    time.sleep(0.3)
     ask_goal_pos(cfPos)
 
-    take_off(cf, 0.5)
+    if cfPos.id == 1:
+        take_off(cf, 1)
+
+    if cfPos.id == 3:
+        take_off(cf, 1)
 
     in_goal = False
 
@@ -63,31 +70,34 @@ def controller(scf, cfPos):
         ugy = ug[1]
         ugz = ug[2]
 
-        print("gotogoal", ugx, ugy)
+        #print("gotogoal", ugx, ugy)
 
-        ua = avc.avController(cfPos, [[0, 0], [0.5, 0.8]])  # Calculate avoidance controls
+        ua = avc.avController(cfPos, [cfPos.other[0], cfPos.other[1]])  # Calculate avoidance controls
 
         uax = ua[0]
         uay = ua[1]
 
-        print("avoidance :", uax, uay)
+        #print("avoidance :", uax, uay)
 
         # Add goal to goal control to collision avoidance control
         ux = ugx + uax
         uy = ugy + uay
         uz = ugz
 
-
-        print("control u: ", ux, uy, uz)
+        #print("control u:", cfPos.id, " ", ux, uy, uz)
 
         cf.commander.send_velocity_world_setpoint(ux, uy, uz, 0)
-        print("pos: ", cfPos.current[0], cfPos.current[1], cfPos.current[2])
+        #print("pos: ", cfPos.current[0], cfPos.current[1], cfPos.current[2])
 
         in_goal = is_in_goal(cfPos)
+        time.sleep(0.051)
+
+    for i in range(10):
+        cf.commander.send_hover_setpoint(0, 0, 0, 0.15)
         time.sleep(0.1)
 
     cf.commander.send_stop_setpoint()
 
     # Make sure that the last packet leaves before the link is closed
     # since the message queue is not flushed before closing
-    time.sleep(0.1)
+    time.sleep(0.2)

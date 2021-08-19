@@ -3,6 +3,8 @@ import csv
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.log import LogConfig
+from cflib.crazyflie.swarm import CachedCfFactory
+from cflib.crazyflie.swarm import Swarm
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.crazyflie.syncLogger import SyncLogger
 from cflib.utils import uri_helper
@@ -11,15 +13,25 @@ import sympy as sy
 import controller as ctr
 
 # URI to the Crazyflie to connect to
-uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E702')
-TOLERANCE = 0.10
+URI1 = 'radio://0/80/2M/E7E7E7E701'
+URI2 = 'radio://0/80/2M/E7E7E7E703'
+
+uris = {
+    URI1,
+    URI2,
+}
+
+#uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E701')
+TOLERANCE = 0.15
 
 
 class Position:
 
-    def __init__(self):
+    def __init__(self, id):
+        self.id = id
         self.current = np.array([[0], [0], [0]], dtype=float)
-        self.goal = np.array([[0], [0], [0.5]], dtype=float)
+        self.goal = np.array([[0], [0], [1]], dtype=float)
+        self.other = np.array([[0], [0], [0]], dtype=float)
 
     def give_current(self):
         return self.current[1]
@@ -78,26 +90,50 @@ def reset_estimator(scf):
 def position_callback(timestamp, data, logconf):
     coordlist = []
 
-    cfPos.current[0] = data['kalman.stateX']
-    x = float(cfPos.current[0])
-    coordlist.append(x)
+    if logconf.name == "Position1":
+        cf1Pos.current[0] = data['kalman.stateX']
+        cf1Pos.other[0] = cf3Pos.current[0]
+        x = float(cf1Pos.current[0])
+        coordlist.append(x)
 
-    cfPos.current[1] = data['kalman.stateY']
-    y = float(cfPos.current[1])
-    coordlist.append(y)
+        cf1Pos.current[1] = data['kalman.stateY']
+        cf1Pos.other[1] = cf3Pos.current[1]
+        y = float(cf1Pos.current[1])
+        coordlist.append(y)
 
-    cfPos.current[2] = data['kalman.stateZ']
+        cf1Pos.current[2] = data['kalman.stateZ']
 
-    with open('pos.csv', 'a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(coordlist)
+        with open('pos1.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(coordlist)
+
+    if logconf.name == "Position3":
+        cf3Pos.current[0] = data['kalman.stateX']
+        cf3Pos.other[0] = cf1Pos.current[0]
+        x = float(cf3Pos.current[0])
+        coordlist.append(x)
+
+        cf3Pos.current[1] = data['kalman.stateY']
+        cf3Pos.other[1] = cf1Pos.current[1]
+        y = float(cf3Pos.current[1])
+        coordlist.append(y)
+
+        cf3Pos.current[2] = data['kalman.stateZ']
+
+        with open('pos3.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(coordlist)
+
 
     #print('pos: ({}, {}, {})'.format(cfPos.current[0], cfPos.current[1], cfPos.current[2]))
     #print('pos: {}'.format(cfPos.current[1]))
 
 
 def start_position_printing(scf):
-    log_conf = LogConfig(name='Position', period_in_ms=50)
+    if scf.cf.link_uri == URI1:
+        log_conf = LogConfig(name='Position1', period_in_ms=50)
+    else:
+        log_conf = LogConfig(name='Position3', period_in_ms=51)
     log_conf.add_variable('kalman.stateX', 'float')
     log_conf.add_variable('kalman.stateY', 'float')
     log_conf.add_variable('kalman.stateZ', 'float')
@@ -108,15 +144,27 @@ def start_position_printing(scf):
 
 
 if __name__ == '__main__':
-    open('pos.csv', 'w+')
-    with open('pos.csv', 'a', newline='') as file:
+    open('pos1.csv', 'w+')
+    with open('pos1.csv', 'a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['x', 'y'])
+        writer.writerow(['x1', 'y1'])
+
+    open('pos3.csv', 'w+')
+    with open('pos3.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['x3', 'y3'])
 
     cflib.crtp.init_drivers()
 
-    with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
-        reset_estimator(scf)
-        start_position_printing(scf)
-        cfPos = Position()
-        ctr.controller(scf, cfPos)
+    factory = CachedCfFactory(rw_cache='./cache')
+    cf = Crazyflie(rw_cache='./cache')
+    with Swarm(uris, factory=factory) as swarm:
+        swarm.parallel(reset_estimator)
+        swarm.parallel(start_position_printing)
+        cf1Pos = Position(1)
+        cf3Pos = Position(3)
+        seq_args = {
+            URI1: [cf1Pos],
+            URI2: [cf3Pos],
+        }
+        swarm.parallel(ctr.controller, args_dict=seq_args)
